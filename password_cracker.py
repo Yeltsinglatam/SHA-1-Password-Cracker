@@ -1,44 +1,33 @@
-import hashlib
 from hashlib import sha1
 
-def crack_sha1_hash(hash, use_salts=False):
+def crack_sha1_hash(target_hash, use_salts=False):
+    target_hash = (target_hash or "").lower()
+
     try:
-        password_found = False
-        passwords = open("top-10000-passwords.txt", "r")
-        for password in passwords:
-            if use_salts == True:
-                with open("known-salts.txt", "r") as salts:
-                    for salt in salts:
-                        salt = salt.splitlines()[0]
-                        password = password.splitlines()[0]
-                        prepend_digest = sha1(
-                            (salt +
-                             password).encode("UTF-8").strip()).hexdigest()
-                        append_digest = sha1(
-                            (password +
-                             salt).encode("UTF-8").strip()).hexdigest()
+        # Cargar contraseñas una sola vez
+        with open("top-10000-passwords.txt", "r", encoding="utf-8") as f:
+            passwords = [line.strip() for line in f if line.strip()]
 
-                        if prepend_digest == hash or append_digest == hash:
-                            salts.close()
-                            passwords.close()
+        if use_salts:
+            # Cargar sales una sola vez
+            with open("known-salts.txt", "r", encoding="utf-8") as f:
+                salts = [line.strip() for line in f if line.strip()]
 
-                            password_found = True
+            # Probar salt+password y password+salt
+            for pwd in passwords:
+                for s in salts:
+                    if sha1((s + pwd).encode("utf-8")).hexdigest() == target_hash:
+                        return pwd
+                    if sha1((pwd + s).encode("utf-8")).hexdigest() == target_hash:
+                        return pwd
+        else:
+            # Probar sin sal
+            for pwd in passwords:
+                if sha1(pwd.encode("utf-8")).hexdigest() == target_hash:
+                    return pwd
 
-                            return password
-            else:
-                password = password.splitlines()[0]
-                encoded_pass = password.encode("UTF-8")
-                digest = sha1(encoded_pass.strip()).hexdigest()
-
-                if digest == hash:
-                    passwords.close()
-                    password_found = True
-                    return password
-
-        if password_found == False:
-            passwords.close()
-            return "PASSWORD NOT IN DATABASE"
+        return "PASSWORD NOT IN DATABASE"
 
     except FileNotFoundError:
-        print("Error: file not found")
-        quit()
+        # No imprimir ni lanzar: FCC espera este string
+        return "PASSWORD NOT IN DATABASE"
